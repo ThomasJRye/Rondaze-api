@@ -1,20 +1,29 @@
-# ---- Build Stage ----
-  FROM node:20-alpine AS build
+FROM node:20-alpine
 
-  WORKDIR /
-  
-  COPY package*.json ./
-  RUN npm install
-  
-  COPY . .
-  RUN npm run build
-  
-  # ---- Production Stage ----
-  FROM nginx:alpine
-  
-  RUN rm -rf /usr/share/nginx/html/*
-  COPY --from=build /dist /usr/share/nginx/html
-  COPY nginx.conf /etc/nginx/conf.d/default.conf
-  
-  EXPOSE 8080
-  CMD ["nginx", "-g", "daemon off;"]
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --omit=dev
+
+# Copy application code
+COPY . .
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nodejs -u 1001
+
+# Change ownership of the app directory
+RUN chown -R nodejs:nodejs /app
+USER nodejs
+
+# Expose port
+EXPOSE 3000
+
+# Start the server
+CMD ["npm", "start"]
